@@ -1,0 +1,27 @@
+services:
+  rumahamal-db:
+    container_name: rumahamal-db
+    image: postgres:17
+    environment:   # Pastikan variabel environment terdefinisi dengan benar
+      POSTGRES_USER: "rumahamal"
+      POSTGRES_PASSWORD: "12345"
+      POSTGRES_DB: "rumahamal"
+    ports:
+      - "5437:5432"  # Map port 5437 host ke 5432 di dalam container
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    networks:
+      - rumahamal-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rumahamal -d rumahamal -h rumahamal-db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+networks:
+  rumahamal-network:
+    driver: bridge
+
+volumes:
+  db-data:
+    name: rumahamal-db-data

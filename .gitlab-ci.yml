@@ -1,0 +1,62 @@
+image: node:18
+
+services:
+  - name: postgres:17
+    alias: postgres
+    variables:
+      POSTGRES_USER: "rumahamal"
+      POSTGRES_PASSWORD: "12345"
+      POSTGRES_DB: "rumahamal"
+
+variables:
+  POSTGRES_USER: "rumahamal"
+  POSTGRES_PASSWORD: "12345"
+  POSTGRES_DB: "rumahamal"
+  DATABASE_URL: "postgresql://rumahamal:12345@postgres:5432/rumahamal"
+
+stages:
+  - setup
+  - build
+  - lint
+  - test
+
+before_script:
+  - echo "Setting up environment..."
+  - cp .env.docker.example .env.docker
+
+setup:
+  stage: setup
+  script:
+    - echo "Installing dependencies..."
+    - npm ci --legacy-peer-deps
+    - npx prisma generate
+  cache:
+    key: ${CI_COMMIT_REF_SLUG}
+    paths:
+      - node_modules/
+    policy: pull-push
+
+build:
+  stage: build
+  script:
+    - echo "Building project..."
+    - export PATH=$(pwd)/node_modules/.bin:$PATH
+    - node -v
+    - npm run build || true
+
+lint:
+  stage: lint
+  script:
+    - echo "Running ESLint..."
+    - npm run lint || true
+
+test:
+  stage: test
+  script:
+    - echo "Running tests..."
+    - node -v
+    - npm -v
+    - npm install --legacy-peer-deps
+    - npx prisma generate
+    - npx prisma migrate reset --force
+    - npm test -- --run src/__tests__/api

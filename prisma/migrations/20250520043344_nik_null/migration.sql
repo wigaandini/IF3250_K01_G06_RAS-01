@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "Mustahiq" ALTER COLUMN "NIK" DROP NOT NULL;

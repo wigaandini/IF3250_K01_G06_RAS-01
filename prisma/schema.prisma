@@ -1,0 +1,319 @@
+// This is your Prisma schema file for the Mustahiq database
+// Visit https://pris.ly/d/prisma-schema for more information
+generator client {
+  provider = "prisma-client-js"
+  output   = "../node_modules/.prisma/client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                  Int                 @id @default(autoincrement())
+  nama                String?
+  email               String              @unique
+  password            String
+  role                String? // superadmin, amil, relawan
+  alamat              String
+  no_telp             String
+  created_at          DateTime?           @db.Timestamptz()
+  updated_at          DateTime?           @db.Timestamptz()
+  // Relations
+  superadmin          Superadmin?
+  amil                Amil?
+  relawan             Relawan?
+  created_mustahiqs   Mustahiq[]          @relation("MustahiqCreatedBy")
+  updated_mustahiqs   Mustahiq[]          @relation("MustahiqUpdatedBy")
+  created_programs    Program_Bantuan[]
+  created_penyalurans Penyaluran[]        @relation("UserCreatedPenyaluran")
+  updated_penyalurans Penyaluran[]        @relation("UserUpdatedPenyaluran")
+  created_lokasis     Lokasi_Bantuan[]
+  activity_logs       Activity_Log[]
+  dashboard_setting   Dashboard_Settings?
+  Penyaluran          Penyaluran[]
+}
+
+model Superadmin {
+  user_id     Int   @id
+  permissions Json?
+  // Relations
+  user        User  @relation(fields: [user_id], references: [id])
+}
+
+model Amil {
+  user_id     Int   @id
+  permissions Json?
+  // Relations
+  user        User  @relation(fields: [user_id], references: [id])
+}
+
+model Relawan {
+  user_id     Int   @id
+  permissions Json?
+  // Relations
+  user        User  @relation(fields: [user_id], references: [id])
+}
+
+model Asnaf {
+  id        Int             @id @default(autoincrement())
+  type      String          @unique
+  mustahiqs MustahiqAsnaf[]
+}
+
+model MustahiqAsnaf {
+  mustahiq   Mustahiq @relation(fields: [mustahiqId], references: [id])
+  mustahiqId Int
+  asnaf      Asnaf    @relation(fields: [asnafId], references: [id])
+  asnafId    Int
+
+  @@id([mustahiqId, asnafId])
+}
+
+model MustahiqProgram {
+  mustahiq   Mustahiq        @relation(fields: [mustahiqId], references: [id])
+  mustahiqId Int
+  program    Program_Bantuan @relation(fields: [programId], references: [id])
+  programId  Int
+
+  @@id([mustahiqId, programId])
+}
+
+model MustahiqKondisiFoto {
+  id          Int      @id @default(autoincrement())
+  mustahiq    Mustahiq @relation(fields: [mustahiq_id], references: [id])
+  mustahiq_id Int
+  url         String
+  created_at  DateTime @default(now())
+}
+
+model Mustahiq {
+  id                  Int                   @id @default(autoincrement())
+  NIK                 String?               @unique
+  nama                String?
+  jenis_kelamin       String?
+  tempat_lahir        String?
+  tanggal_lahir       DateTime?
+  asnafs              MustahiqAsnaf[]
+  no_telepon          String?
+  email               String?
+  alamat              String?
+  provinsi            String?
+  kabupaten           String?
+  kecamatan           String?
+  kelurahan           String?
+  kode_pos            String?
+  GPS_lat             Float?
+  GPS_long            Float?
+  status_pernikahan   String?
+  pekerjaan           String?
+  agama               String?
+  pendidikan_terakhir String?
+  jumlah_anggota_kk   Int?
+  foto_kk             String?
+  foto_ktp            String?
+  foto_mustahiq       String?
+  fotos_kondisi       MustahiqKondisiFoto[]
+  status              String? // active, inactive
+  created_at          DateTime?             @db.Timestamptz()
+  created_by          Int?
+  updated_at          DateTime?             @db.Timestamptz()
+  updated_by          Int?
+  programs            MustahiqProgram[]
+
+  // Relasi
+  creator             User?                 @relation("MustahiqCreatedBy", fields: [created_by], references: [id])
+  updater             User?                 @relation("MustahiqUpdatedBy", fields: [updated_by], references: [id])
+  bantuans            Penyaluran[]
+  riwayats            Riwayat_Bantuan[]
+  ParameterFieldValue ParameterFieldValue[]
+
+  @@index([GPS_lat, GPS_long], name: "mustahiq_coords")
+}
+
+model Program_Bantuan {
+  id                  Int                   @id @default(autoincrement())
+  nama_program        String
+  bidang_kategori     String                @default("Pendidikan") // pendidikan, kesehatan, ekonomi, kemanusiaan, dakwah-advokasi
+  unit_penyalur       String                @default("pusat") // Pusat, Cabang, Mitra
+  kepala_program      Int?                  @default(1) // Nama PIC atau ID User kalau relasi
+  // Mitra Penyaluran
+  nama_mitra          String?
+  kategori_mitra      String?
+  catatan_mitra       String?
+  deskripsi           String?
+  kriteria            String?
+  jumlah_bantuan      Int?
+  tanggal_mulai       DateTime?             @db.Date
+  tanggal_selesai     DateTime?             @db.Date
+  status              String                @default("active")
+  created_at          DateTime?             @db.Timestamptz()
+  created_by          Int?
+  updated_at          DateTime?             @db.Timestamptz()
+  // Relations
+  creator             User?                 @relation(fields: [created_by], references: [id])
+  bantuans            Penyaluran[]
+  riwayats            Riwayat_Bantuan[]
+  participants        MustahiqProgram[]
+  ParameterField      ParameterField[]
+  ParameterFieldValue ParameterFieldValue[]
+  program_sumber_dana ProgramSumberDana[]
+
+  @@index([nama_program])
+}
+
+model ProgramSumberDana {
+  id                  Int             @id @default(autoincrement())
+  program_id          Int
+  sumber_dana         String // e.g., Zakat, Infak, Hibah
+  nominal             Int // e.g., 1000000
+  catatan_sumber_dana String? // e.g., "PT Antam"
+  program             Program_Bantuan @relation(fields: [program_id], references: [id])
+
+  @@index([program_id])
+}
+
+model Penyaluran {
+  id                  Int                   @id @default(autoincrement())
+  mustahiq_id         Int?
+  program_id          Int?
+  lokasi_id           Int?
+  tanggal             DateTime?             @db.Date
+  jumlah              Int?
+  bukti_penyaluran    String?
+  coa_debt_id         Int
+  coa_cred_id         Int
+  catatan             String?
+  status              String?
+  created_at          DateTime?             @db.Timestamptz()
+  created_by          Int?
+  updated_at          DateTime?             @db.Timestamptz()
+  updated_by          Int?
+  mustahiq            Mustahiq?             @relation(fields: [mustahiq_id], references: [id])
+  program             Program_Bantuan?      @relation(fields: [program_id], references: [id])
+  lokasi              Lokasi_Bantuan?       @relation(fields: [lokasi_id], references: [id])
+  creator             User?                 @relation("UserCreatedPenyaluran", fields: [created_by], references: [id])
+  updater             User?                 @relation("UserUpdatedPenyaluran", fields: [updated_by], references: [id])
+  User                User?                 @relation(fields: [userId], references: [id])
+  userId              Int?
+  ParameterFieldValue ParameterFieldValue[]
+
+  coa_debt CoA @relation("CoADebt", fields: [coa_debt_id], references: [id])
+  coa_cred CoA @relation("CoACred", fields: [coa_cred_id], references: [id])
+
+  @@index([mustahiq_id, program_id])
+  @@index([tanggal])
+}
+
+model Riwayat_Bantuan {
+  id          Int              @id @default(autoincrement())
+  mustahiq_id Int?
+  program_id  Int?
+  lokasi_id   Int?
+  tanggal     DateTime?        @db.Date
+  jumlah      Int?
+  status      String?
+  created_at  DateTime?        @db.Timestamptz()
+  // Relations
+  mustahiq    Mustahiq?        @relation(fields: [mustahiq_id], references: [id])
+  program     Program_Bantuan? @relation(fields: [program_id], references: [id])
+  lokasi      Lokasi_Bantuan?  @relation(fields: [lokasi_id], references: [id])
+
+  @@index([mustahiq_id, program_id])
+  @@index([tanggal])
+}
+
+model Lokasi_Bantuan {
+  id          Int               @id @default(autoincrement())
+  nama_lokasi String?
+  alamat      String?
+  tipe        String? // komunitas, bencana, individu
+  deskripsi   String?
+  GPS_lat     Float?
+  GPS_long    Float?
+  foto        String? // Path to location photo
+  status      String? // active, inactive
+  created_at  DateTime?         @db.Timestamptz()
+  created_by  Int?
+  updated_at  DateTime?         @db.Timestamptz()
+  // Relations
+  creator     User?             @relation(fields: [created_by], references: [id])
+  bantuans    Penyaluran[]
+  riwayats    Riwayat_Bantuan[]
+
+  @@index([GPS_lat, GPS_long], name: "location_coords")
+  @@index([tipe])
+}
+
+model Activity_Log {
+  id         Int       @id @default(autoincrement())
+  user_id    Int?
+  action     String? // create, update, delete, login, logout
+  table_name String?
+  record_id  Int?
+  old_values Json?
+  new_values Json?
+  ip_address String?
+  user_agent String?
+  timestamp  DateTime? @db.Timestamptz()
+  // Relations
+  user       User?     @relation(fields: [user_id], references: [id])
+
+  @@index([user_id])
+  @@index([table_name, record_id])
+  @@index([timestamp])
+}
+
+model Dashboard_Settings {
+  id         Int       @id @default(autoincrement())
+  user_id    Int       @unique
+  settings   Json?
+  created_at DateTime? @db.Timestamptz()
+  updated_at DateTime? @db.Timestamptz()
+  // Relations
+  user       User      @relation(fields: [user_id], references: [id])
+}
+
+model ParameterField {
+  id                  Int                   @id @default(autoincrement())
+  program_id          Int
+  field_name          String
+  field_type          String // text, number, date, checkbox, select, etc.
+  is_required         Boolean               @default(false)
+  options             Json? // For select/dropdown fields: array of options
+  description         String?
+  created_at          DateTime?             @db.Timestamptz()
+  // Relations
+  program             Program_Bantuan       @relation(fields: [program_id], references: [id])
+  ParameterFieldValue ParameterFieldValue[]
+
+  @@index([program_id])
+}
+
+model ParameterFieldValue {
+  id            Int             @id @default(autoincrement())
+  program_id    Int
+  field_id      Int
+  mustahiq_id   Int
+  penyaluran_id Int
+  value         String
+  created_at    DateTime?       @db.Timestamptz()
+  program       Program_Bantuan @relation(fields: [program_id], references: [id])
+  field         ParameterField  @relation(fields: [field_id], references: [id])
+  mustahiq      Mustahiq        @relation(fields: [mustahiq_id], references: [id])
+  penyaluran    Penyaluran      @relation(fields: [penyaluran_id], references: [id])
+
+  @@index([program_id, field_id])
+}
+
+model CoA {
+  id              Int          @id @default(autoincrement())
+  kode            String       @unique
+  jenis_transaksi String
+  created_at      DateTime?    @db.Timestamptz()
+  updated_at      DateTime?    @db.Timestamptz()
+  // Relasi
+  penyaluran_debt Penyaluran[] @relation("CoADebt")
+  penyaluran_cred Penyaluran[] @relation("CoACred")
+}
